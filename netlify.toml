@@ -1,6 +1,7 @@
 [build]
   publish = "."
   functions = "netlify/functions"
+  command = "echo \"const CONFIG = { apiKey: '$ANTHROPIC_API_KEY' };\" > config.js"
 
 [functions]
   directory = "netlify/functions"
