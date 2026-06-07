@@ -1,0 +1,10 @@
+# System files
+.DS_Store
+Thumbs.db
+
+# Environment variables — never upload secrets
+.env
+.env.local
+
+# Node modules if you ever add them
+node_modules/

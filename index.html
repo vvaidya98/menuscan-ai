@@ -1,0 +1,615 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MenuScan AI — Eat out with confidence</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --safe: #16a34a;
+      --safe-light: #f0fdf4;
+      --safe-border: #bbf7d0;
+      --check: #d97706;
+      --check-light: #fffbeb;
+      --check-border: #fde68a;
+      --avoid: #dc2626;
+      --avoid-light: #fef2f2;
+      --avoid-border: #fecaca;
+      --gluten-badge: #dc2626;
+      --dairy-badge: #2563eb;
+    }
+    body { font-family: 'DM Sans', sans-serif; background: #fafaf9; }
+    h1, h2 { font-family: 'DM Serif Display', serif; }
+    .screen { display: none; }
+    .screen.active { display: block; }
+    .badge-g { background: var(--gluten-badge); color: white; font-size: 11px; font-weight: 700; border-radius: 4px; padding: 2px 6px; }
+    .badge-d { background: var(--dairy-badge); color: white; font-size: 11px; font-weight: 700; border-radius: 4px; padding: 2px 6px; }
+    .card-safe { border-left: 4px solid var(--safe); background: var(--safe-light); }
+    .card-check { border-left: 4px solid var(--check); background: var(--check-light); }
+    .card-avoid { border-left: 4px solid var(--avoid); background: var(--avoid-light); }
+    .filter-tab { transition: all 0.15s; cursor: pointer; border-radius: 20px; padding: 4px 14px; font-size: 13px; font-weight: 500; border: 1px solid #e5e7eb; background: white; color: #6b7280; }
+    .filter-tab.active { background: #111827; color: white; border-color: #111827; }
+    .toggle-btn { transition: all 0.15s; cursor: pointer; border-radius: 6px; padding: 5px 12px; font-size: 13px; font-weight: 700; border: 2px solid; }
+    .toggle-g { border-color: var(--gluten-badge); color: var(--gluten-badge); }
+    .toggle-g.active { background: var(--gluten-badge); color: white; }
+    .toggle-d { border-color: var(--dairy-badge); color: var(--dairy-badge); }
+    .toggle-d.active { background: var(--dairy-badge); color: white; }
+    .chef-bubble { background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 10px; border-top-left-radius: 2px; position: relative; }
+    .chef-bubble::before { content: '👨‍🍳'; position: absolute; left: -8px; top: -8px; font-size: 16px; }
+    .upload-zone { border: 2px dashed #d1d5db; border-radius: 16px; transition: all 0.2s; }
+    .upload-zone:hover { border-color: #111827; background: #f9fafb; }
+    .input-method { border: 1.5px solid #e5e7eb; border-radius: 12px; cursor: pointer; transition: all 0.15s; }
+    .input-method:hover, .input-method.selected { border-color: #111827; background: #f9fafb; }
+    .spinner { width: 40px; height: 40px; border: 3px solid #e5e7eb; border-top-color: #111827; border-radius: 50%; animation: spin 0.8s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .highlight-g { background: #fee2e2; border-radius: 3px; padding: 0 2px; font-weight: 600; color: var(--gluten-badge); }
+    .highlight-d { background: #dbeafe; border-radius: 3px; padding: 0 2px; font-weight: 600; color: var(--dairy-badge); }
+    #camera-preview { width: 100%; max-height: 280px; object-fit: cover; border-radius: 12px; display: none; }
+    .summary-bar { height: 6px; border-radius: 3px; }
+    #scan-btn { transition: all 0.15s; }
+    #scan-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  </style>
+</head>
+<body class="min-h-screen">
+
+  <!-- LANDING SCREEN -->
+  <div id="screen-landing" class="screen active max-w-lg mx-auto px-4 py-10">
+
+    <!-- Header -->
+    <div class="text-center mb-8">
+      <div class="inline-flex items-center gap-2 bg-black text-white rounded-full px-4 py-1.5 text-xs font-medium mb-4 tracking-wide">
+        ✦ AI-POWERED
+      </div>
+      <h1 class="text-4xl text-gray-900 mb-2">MenuScan AI</h1>
+      <p class="text-gray-500 text-lg font-light">Eat out with confidence</p>
+    </div>
+
+    <!-- Disclaimer -->
+    <div class="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-6 text-sm text-amber-800">
+      <span class="font-semibold">⚠️ Important:</span> MenuScan AI is a decision-support tool only. Always verify ingredients directly with the restaurant. This app does not replace personal judgment or medical advice and must not be relied upon for severe allergies.
+    </div>
+
+    <!-- Input Method Selection -->
+    <p class="text-sm font-medium text-gray-600 mb-3">How would you like to share the menu?</p>
+    <div class="flex flex-col gap-3 mb-6">
+
+      <!-- Upload Photo -->
+      <div class="input-method selected p-4 flex items-center gap-4" id="method-upload" onclick="selectMethod('upload')">
+        <div class="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center text-xl">📷</div>
+        <div>
+          <div class="font-medium text-gray-900 text-sm">Upload a photo</div>
+          <div class="text-xs text-gray-500">Choose from your camera roll</div>
+        </div>
+      </div>
+
+      <!-- Take Photo -->
+      <div class="input-method p-4 flex items-center gap-4" id="method-camera" onclick="selectMethod('camera')">
+        <div class="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center text-xl">📸</div>
+        <div>
+          <div class="font-medium text-gray-900 text-sm">Take a photo</div>
+          <div class="text-xs text-gray-500">Use your device camera</div>
+        </div>
+      </div>
+
+      <!-- Paste URL -->
+      <div class="input-method p-4 flex items-center gap-4" id="method-url" onclick="selectMethod('url')">
+        <div class="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center text-xl">🔗</div>
+        <div>
+          <div class="font-medium text-gray-900 text-sm">Paste a menu URL</div>
+          <div class="text-xs text-gray-500">From a QR code or restaurant website</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Input Area -->
+    <div id="input-area" class="mb-6">
+
+      <!-- Upload zone -->
+      <div id="zone-upload">
+        <label class="upload-zone flex flex-col items-center justify-center p-8 cursor-pointer gap-3">
+          <div class="text-3xl">🖼️</div>
+          <div class="text-sm font-medium text-gray-700">Click to choose a photo</div>
+          <div class="text-xs text-gray-400">JPG, PNG, HEIC supported</div>
+          <input type="file" id="file-input" accept="image/*" class="hidden" onchange="handleFileSelect(event)" />
+        </label>
+        <div id="file-preview" class="mt-3 hidden">
+          <img id="preview-img" class="w-full rounded-xl object-cover max-h-48" />
+          <p id="file-name" class="text-xs text-gray-500 mt-1 text-center"></p>
+        </div>
+      </div>
+
+      <!-- Camera zone -->
+      <div id="zone-camera" class="hidden">
+        <video id="camera-preview" autoplay playsinline></video>
+        <canvas id="camera-canvas" class="hidden"></canvas>
+        <div id="camera-start" class="upload-zone flex flex-col items-center justify-center p-8 gap-3 cursor-pointer" onclick="startCamera()">
+          <div class="text-3xl">📸</div>
+          <div class="text-sm font-medium text-gray-700">Tap to open camera</div>
+        </div>
+        <div id="camera-controls" class="hidden flex gap-3 mt-3">
+          <button onclick="capturePhoto()" class="flex-1 bg-black text-white rounded-xl py-3 text-sm font-medium">📸 Capture</button>
+          <button onclick="stopCamera()" class="px-4 bg-gray-100 text-gray-700 rounded-xl py-3 text-sm font-medium">✕ Cancel</button>
+        </div>
+        <div id="camera-captured" class="hidden mt-3">
+          <img id="captured-img" class="w-full rounded-xl object-cover max-h-48" />
+          <p class="text-xs text-green-600 mt-1 text-center font-medium">✓ Photo captured</p>
+        </div>
+        <p id="camera-error" class="text-xs text-red-600 mt-2 hidden text-center">Camera unavailable — please use the upload option instead.</p>
+      </div>
+
+      <!-- URL zone -->
+      <div id="zone-url" class="hidden">
+        <input type="url" id="url-input" placeholder="https://restaurant.com/menu" class="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-gray-900 focus:ring-1 focus:ring-gray-900" oninput="checkReady()" />
+        <p class="text-xs text-gray-400 mt-2">Paste the menu page URL or the link from a QR code</p>
+      </div>
+    </div>
+
+    <!-- Scan Button -->
+    <button id="scan-btn" onclick="startScan()" disabled
+      class="w-full bg-gray-900 text-white rounded-xl py-4 font-medium text-base hover:bg-black transition-colors">
+      Scan Menu ✦
+    </button>
+
+    <p class="text-center text-xs text-gray-400 mt-4">Powered by Claude AI · Results in seconds</p>
+  </div>
+
+  <!-- SCANNING SCREEN -->
+  <div id="screen-scanning" class="screen max-w-lg mx-auto px-4 py-20 text-center">
+    <div class="spinner mx-auto mb-6"></div>
+    <h2 class="text-2xl text-gray-900 mb-2">Scanning your menu…</h2>
+    <p class="text-gray-500 text-sm">Claude AI is reading every dish for gluten and dairy</p>
+    <div class="mt-8 text-xs text-gray-400 space-y-1">
+      <p id="scan-step-1" class="opacity-0 transition-opacity">✓ Menu received</p>
+      <p id="scan-step-2" class="opacity-0 transition-opacity">✓ Reading dish descriptions…</p>
+      <p id="scan-step-3" class="opacity-0 transition-opacity">✓ Checking ingredients…</p>
+    </div>
+  </div>
+
+  <!-- RESULTS SCREEN -->
+  <div id="screen-results" class="screen max-w-lg mx-auto px-4 py-8">
+
+    <!-- Header -->
+    <div class="flex items-center justify-between mb-4">
+      <div>
+        <h1 class="text-2xl text-gray-900">Your Results</h1>
+        <p class="text-sm text-gray-500 font-light">MenuScan AI</p>
+      </div>
+      <button onclick="resetApp()" class="text-sm text-gray-500 hover:text-gray-900 underline underline-offset-2">Scan again</button>
+    </div>
+
+    <!-- Disclaimer -->
+    <div class="bg-amber-50 border border-amber-200 rounded-xl p-3 mb-4 text-xs text-amber-800">
+      ⚠️ Always verify with restaurant staff. This is a guide only — not medical advice.
+    </div>
+
+    <!-- Summary Strip -->
+    <div id="summary-strip" class="bg-white border border-gray-100 rounded-xl p-4 mb-4 shadow-sm">
+      <div class="flex justify-between text-sm mb-3">
+        <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-green-500 inline-block"></span> <span id="count-safe">0</span> safe</span>
+        <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-amber-500 inline-block"></span> <span id="count-check">0</span> to check</span>
+        <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-red-500 inline-block"></span> <span id="count-avoid">0</span> avoid</span>
+      </div>
+      <div class="flex gap-1 h-1.5">
+        <div id="bar-safe" class="summary-bar bg-green-500 transition-all"></div>
+        <div id="bar-check" class="summary-bar bg-amber-400 transition-all"></div>
+        <div id="bar-avoid" class="summary-bar bg-red-500 transition-all"></div>
+      </div>
+    </div>
+
+    <!-- Filters -->
+    <div class="bg-white border border-gray-100 rounded-xl p-3 mb-4 shadow-sm">
+      <!-- Intolerance toggles -->
+      <div class="flex gap-2 mb-3">
+        <button class="toggle-btn toggle-g active" id="toggle-g" onclick="toggleFilter('g')">G Gluten</button>
+        <button class="toggle-btn toggle-d active" id="toggle-d" onclick="toggleFilter('d')">D Dairy</button>
+        <span class="ml-auto text-xs text-gray-400 self-center">Active filters</span>
+      </div>
+      <!-- Course tabs -->
+      <div id="course-tabs" class="flex gap-2 flex-wrap"></div>
+    </div>
+
+    <!-- Results List -->
+    <div id="results-list" class="space-y-3"></div>
+
+    <!-- Empty state -->
+    <div id="empty-state" class="hidden text-center py-12 text-gray-400">
+      <div class="text-3xl mb-2">🍽️</div>
+      <p class="text-sm">No items match your current filters</p>
+    </div>
+
+    <p class="text-center text-xs text-gray-400 mt-6">Powered by Claude AI · MenuScan AI</p>
+  </div>
+
+<script>
+// ─── STATE ───────────────────────────────────────────────────────────────────
+let state = {
+  method: 'upload',
+  imageBase64: null,
+  imageMimeType: null,
+  menuUrl: null,
+  items: [],
+  filters: { g: true, d: true, course: 'All' },
+  stream: null
+};
+
+// ─── SCREEN MANAGEMENT ───────────────────────────────────────────────────────
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById('screen-' + id).classList.add('active');
+}
+
+// ─── METHOD SELECTION ────────────────────────────────────────────────────────
+function selectMethod(method) {
+  state.method = method;
+  state.imageBase64 = null;
+  state.menuUrl = null;
+
+  document.querySelectorAll('.input-method').forEach(el => el.classList.remove('selected'));
+  document.getElementById('method-' + method).classList.add('selected');
+
+  document.getElementById('zone-upload').classList.add('hidden');
+  document.getElementById('zone-camera').classList.add('hidden');
+  document.getElementById('zone-url').classList.add('hidden');
+  document.getElementById('zone-' + method).classList.remove('hidden');
+
+  if (method !== 'camera') stopCamera();
+  checkReady();
+}
+
+// ─── FILE UPLOAD ─────────────────────────────────────────────────────────────
+function handleFileSelect(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    const dataUrl = e.target.result;
+    state.imageBase64 = dataUrl.split(',')[1];
+    state.imageMimeType = file.type;
+    document.getElementById('preview-img').src = dataUrl;
+    document.getElementById('file-name').textContent = file.name;
+    document.getElementById('file-preview').classList.remove('hidden');
+    checkReady();
+  };
+  reader.readAsDataURL(file);
+}
+
+// ─── CAMERA ──────────────────────────────────────────────────────────────────
+async function startCamera() {
+  try {
+    state.stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+    const video = document.getElementById('camera-preview');
+    video.srcObject = state.stream;
+    video.style.display = 'block';
+    document.getElementById('camera-start').classList.add('hidden');
+    document.getElementById('camera-controls').classList.remove('hidden');
+  } catch (e) {
+    document.getElementById('camera-error').classList.remove('hidden');
+    document.getElementById('camera-start').classList.add('hidden');
+  }
+}
+
+function capturePhoto() {
+  const video = document.getElementById('camera-preview');
+  const canvas = document.getElementById('camera-canvas');
+  canvas.width = video.videoWidth;
+  canvas.height = video.videoHeight;
+  canvas.getContext('2d').drawImage(video, 0, 0);
+  const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
+  state.imageBase64 = dataUrl.split(',')[1];
+  state.imageMimeType = 'image/jpeg';
+  document.getElementById('captured-img').src = dataUrl;
+  document.getElementById('camera-captured').classList.remove('hidden');
+  stopCamera();
+  document.getElementById('camera-controls').classList.add('hidden');
+  checkReady();
+}
+
+function stopCamera() {
+  if (state.stream) { state.stream.getTracks().forEach(t => t.stop()); state.stream = null; }
+  const video = document.getElementById('camera-preview');
+  video.style.display = 'none';
+}
+
+// ─── READY CHECK ─────────────────────────────────────────────────────────────
+function checkReady() {
+  let ready = false;
+  if (state.method === 'upload' || state.method === 'camera') ready = !!state.imageBase64;
+  if (state.method === 'url') {
+    const val = document.getElementById('url-input').value.trim();
+    ready = val.startsWith('http');
+    state.menuUrl = val;
+  }
+  document.getElementById('scan-btn').disabled = !ready;
+}
+
+// ─── SCAN ─────────────────────────────────────────────────────────────────────
+async function startScan() {
+  showScreen('scanning');
+  animateScanSteps();
+
+  try {
+    let items;
+    if (state.method === 'url') {
+      items = await scanUrl(state.menuUrl);
+    } else {
+      items = await scanImage(state.imageBase64, state.imageMimeType);
+    }
+    state.items = items;
+    buildResults();
+    showScreen('results');
+  } catch (err) {
+    alert('Something went wrong scanning the menu — please try again.\n\n' + err.message);
+    showScreen('landing');
+  }
+}
+
+function animateScanSteps() {
+  const steps = ['scan-step-1', 'scan-step-2', 'scan-step-3'];
+  steps.forEach((id, i) => {
+    setTimeout(() => {
+      document.getElementById(id).style.opacity = '1';
+    }, i * 1200);
+  });
+}
+
+// ─── CLAUDE API — IMAGE ───────────────────────────────────────────────────────
+async function scanImage(base64, mimeType) {
+  const systemPrompt = `You are a dietary safety assistant specialising in gluten and dairy intolerance.
+You will be given a restaurant menu image.
+
+For every menu item, return a JSON array. Each object must have:
+- "name": string — the dish name
+- "price": string or null — price if visible on the menu
+- "course": string — one of: "Appetizer", "Soup", "Salad", "Entree", "Side", "Dessert", "Drink", "Unknown"
+- "gluten_status": "safe" | "avoid" | "check"
+- "dairy_status": "safe" | "avoid" | "check"
+- "gluten_reason": string or null — one-line reason if avoid or check, null if safe
+- "dairy_reason": string or null — one-line reason if avoid or check, null if safe
+- "gluten_confidence": number — 0 to 1
+- "dairy_confidence": number — 0 to 1
+- "chef_question": string or null — only if either status is "check"
+- "flagged_ingredients": array of strings — ingredient words in the description that triggered a flag
+
+Rules:
+- "avoid" = clearly contains gluten (pasta, bread, flour, soy sauce, beer batter, croutons, breadcrumbs) or dairy (cream, cheese, butter, milk, yoghurt, béchamel)
+- "check" = may contain but not explicit (e.g. "chicken wings" may be breaded; "sauce" may have dairy; "marinated" may use soy sauce)
+- "safe" = no known gluten or dairy detected
+
+Always err on the side of caution. If uncertain, use "check" not "safe".
+Return ONLY a valid JSON array. No preamble, no markdown fences, no explanation outside the JSON.`;
+
+  const response = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'anthropic-version': '2023-06-01', 'x-api-key': 'REPLACE_WITH_YOUR_API_KEY' },
+    body: JSON.stringify({
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 2000,
+      system: systemPrompt,
+      messages: [{
+        role: 'user',
+        content: [{
+          type: 'image',
+          source: { type: 'base64', media_type: mimeType, data: base64 }
+        }, {
+          type: 'text',
+          text: 'Please scan this restaurant menu and classify every dish for gluten and dairy content.'
+        }]
+      }]
+    })
+  });
+
+  if (!response.ok) throw new Error('API error: ' + response.status);
+  const data = await response.json();
+  const text = data.content[0].text.replace(/```json|```/g, '').trim();
+  return JSON.parse(text);
+}
+
+// ─── CLAUDE API — URL ─────────────────────────────────────────────────────────
+// NOTE: In production, URL fetching should go through a serverless proxy to avoid CORS.
+// For Phase 1 testing, we pass the URL to Claude and ask it to note it cannot fetch,
+// or use a CORS proxy. Placeholder implementation below.
+async function scanUrl(url) {
+  // PHASE_1: Using a CORS proxy for testing. Replace with Vercel serverless function in production.
+  let menuText = '';
+  try {
+    const proxyUrl = 'https://api.allorigins.win/get?url=' + encodeURIComponent(url);
+    const res = await fetch(proxyUrl);
+    const data = await res.json();
+    // Strip HTML tags for cleaner text
+    const div = document.createElement('div');
+    div.innerHTML = data.contents;
+    menuText = div.innerText.substring(0, 8000); // Cap to avoid token limits
+  } catch (e) {
+    throw new Error("We couldn't read that page — try uploading a photo instead.");
+  }
+
+  const systemPrompt = `You are a dietary safety assistant specialising in gluten and dairy intolerance.
+You will be given text extracted from a restaurant menu webpage.
+
+For every menu item found, return a JSON array. Each object must have:
+- "name": string — the dish name
+- "price": string or null
+- "course": string — one of: "Appetizer", "Soup", "Salad", "Entree", "Side", "Dessert", "Drink", "Unknown"
+- "gluten_status": "safe" | "avoid" | "check"
+- "dairy_status": "safe" | "avoid" | "check"
+- "gluten_reason": string or null
+- "dairy_reason": string or null
+- "gluten_confidence": number — 0 to 1
+- "dairy_confidence": number — 0 to 1
+- "chef_question": string or null — only if either status is "check"
+- "flagged_ingredients": array of strings
+
+Rules:
+- "avoid" = clearly contains gluten or dairy
+- "check" = may contain but not explicit
+- "safe" = no known gluten or dairy detected
+
+Ignore navigation, headers, footers, and non-menu text.
+Always err on the side of caution.
+Return ONLY a valid JSON array. No preamble, no markdown, no explanation.`;
+
+  const response = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'anthropic-version': '2023-06-01', 'x-api-key': 'REPLACE_WITH_YOUR_API_KEY' },
+    body: JSON.stringify({
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 2000,
+      system: systemPrompt,
+      messages: [{ role: 'user', content: 'Menu text:\n\n' + menuText }]
+    })
+  });
+
+  if (!response.ok) throw new Error('API error: ' + response.status);
+  const data = await response.json();
+  const text = data.content[0].text.replace(/```json|```/g, '').trim();
+  return JSON.parse(text);
+}
+
+// ─── BUILD RESULTS ────────────────────────────────────────────────────────────
+function buildResults() {
+  const items = state.items;
+  const safe = items.filter(i => overallStatus(i) === 'safe').length;
+  const check = items.filter(i => overallStatus(i) === 'check').length;
+  const avoid = items.filter(i => overallStatus(i) === 'avoid').length;
+  const total = items.length || 1;
+
+  document.getElementById('count-safe').textContent = safe;
+  document.getElementById('count-check').textContent = check;
+  document.getElementById('count-avoid').textContent = avoid;
+  document.getElementById('bar-safe').style.width = (safe / total * 100) + '%';
+  document.getElementById('bar-check').style.width = (check / total * 100) + '%';
+  document.getElementById('bar-avoid').style.width = (avoid / total * 100) + '%';
+
+  // Build course tabs
+  const courses = ['All', ...new Set(items.map(i => i.course).filter(Boolean))];
+  const tabsEl = document.getElementById('course-tabs');
+  tabsEl.innerHTML = '';
+  courses.forEach(course => {
+    const btn = document.createElement('button');
+    btn.className = 'filter-tab' + (course === 'All' ? ' active' : '');
+    btn.textContent = course;
+    btn.onclick = () => setCourseFilter(course);
+    tabsEl.appendChild(btn);
+  });
+
+  renderList();
+}
+
+function overallStatus(item) {
+  const g = state.filters.g ? item.gluten_status : 'safe';
+  const d = state.filters.d ? item.dairy_status : 'safe';
+  if (g === 'avoid' || d === 'avoid') return 'avoid';
+  if (g === 'check' || d === 'check') return 'check';
+  return 'safe';
+}
+
+function renderList() {
+  const list = document.getElementById('results-list');
+  const empty = document.getElementById('empty-state');
+  list.innerHTML = '';
+
+  const filtered = state.items.filter(item => {
+    if (state.filters.course !== 'All' && item.course !== state.filters.course) return false;
+    return true;
+  });
+
+  // Sort: safe first, then check, then avoid
+  const order = { safe: 0, check: 1, avoid: 2 };
+  filtered.sort((a, b) => order[overallStatus(a)] - order[overallStatus(b)]);
+
+  if (filtered.length === 0) {
+    empty.classList.remove('hidden');
+    return;
+  }
+  empty.classList.add('hidden');
+
+  filtered.forEach(item => {
+    const status = overallStatus(item);
+    const card = document.createElement('div');
+    card.className = `card-${status} rounded-xl p-4`;
+
+    // Badges
+    const badges = [];
+    if (state.filters.g && item.gluten_status !== 'safe') badges.push('<span class="badge-g">G</span>');
+    if (state.filters.d && item.dairy_status !== 'safe') badges.push('<span class="badge-d">D</span>');
+
+    // Reason lines
+    const reasons = [];
+    if (state.filters.g && item.gluten_reason) reasons.push('🌾 ' + item.gluten_reason);
+    if (state.filters.d && item.dairy_reason) reasons.push('🥛 ' + item.dairy_reason);
+
+    // Confidence (amber items only)
+    let confidenceHtml = '';
+    if (status === 'check') {
+      const conf = state.filters.g && item.gluten_status === 'check' ? item.gluten_confidence
+                  : state.filters.d && item.dairy_status === 'check' ? item.dairy_confidence : null;
+      if (conf !== null) {
+        const pct = Math.round(conf * 20) * 5;
+        confidenceHtml = `<p class="text-xs text-amber-600 mt-1">~${pct}% likely safe — confirm with staff</p>`;
+      }
+    }
+
+    // Chef question
+    let chefHtml = '';
+    if (status === 'check' && item.chef_question) {
+      chefHtml = `<div class="chef-bubble mt-3 p-3 ml-2">
+        <p class="text-xs font-medium text-gray-600 mb-0.5">Ask your server:</p>
+        <p class="text-sm text-gray-800">"${item.chef_question}"</p>
+      </div>`;
+    }
+
+    card.innerHTML = `
+      <div class="flex items-start justify-between gap-2">
+        <div class="flex-1">
+          <div class="flex items-center gap-2 flex-wrap">
+            <span class="font-semibold text-gray-900 text-sm">${item.name}</span>
+            ${item.price ? `<span class="text-xs text-gray-500">${item.price}</span>` : ''}
+          </div>
+          ${reasons.length ? `<p class="text-xs text-gray-600 mt-1">${reasons.join(' · ')}</p>` : ''}
+          ${confidenceHtml}
+        </div>
+        <div class="flex gap-1 flex-shrink-0">${badges.join('')}</div>
+      </div>
+      ${chefHtml}
+    `;
+    list.appendChild(card);
+  });
+}
+
+// ─── FILTER CONTROLS ──────────────────────────────────────────────────────────
+function toggleFilter(type) {
+  state.filters[type] = !state.filters[type];
+  const btn = document.getElementById('toggle-' + type);
+  btn.classList.toggle('active', state.filters[type]);
+  renderList();
+}
+
+function setCourseFilter(course) {
+  state.filters.course = course;
+  document.querySelectorAll('.filter-tab').forEach(btn => {
+    btn.classList.toggle('active', btn.textContent === course);
+  });
+  renderList();
+}
+
+// ─── RESET ────────────────────────────────────────────────────────────────────
+function resetApp() {
+  state.imageBase64 = null;
+  state.menuUrl = null;
+  state.items = [];
+  state.filters = { g: true, d: true, course: 'All' };
+  state.method = 'upload';
+  document.getElementById('file-input').value = '';
+  document.getElementById('file-preview').classList.add('hidden');
+  document.getElementById('url-input').value = '';
+  document.getElementById('camera-captured').classList.add('hidden');
+  document.getElementById('camera-error').classList.add('hidden');
+  document.getElementById('camera-start').classList.remove('hidden');
+  selectMethod('upload');
+  showScreen('landing');
+}
+</script>
+</body>
+</html>
