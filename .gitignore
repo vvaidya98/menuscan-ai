@@ -8,3 +8,4 @@ Thumbs.db
 
 # Node modules if you ever add them
 node_modules/
+config.js

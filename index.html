@@ -6,6 +6,7 @@
   <title>MenuScan AI — Eat out with confidence</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <script src="config.js"></script>
   <style>
     :root {
       --safe: #16a34a;
@@ -216,7 +217,7 @@
 <script>
   // ─── CONFIG ────────────────────────────────────────────────────────────────
   const PASSWORD = "glut26";
-  const API_KEY  = "apian";
+  const API_KEY  = (typeof CONFIG !== "undefined") ? CONFIG.apiKey : "";
 
   // ─── PASSWORD ──────────────────────────────────────────────────────────────
   function checkPassword() {
